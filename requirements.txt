@@ -1,0 +1,8 @@
+fastapi
+python-multipart
+twilio
+sqlalchemy
+langchain
+langchain-openai
+python-dotenv
+uvicorn
