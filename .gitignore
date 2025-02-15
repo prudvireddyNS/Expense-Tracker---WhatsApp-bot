@@ -1,3 +1,4 @@
 expenses.db
 demo.ipynb
 .env
+__pycache__
