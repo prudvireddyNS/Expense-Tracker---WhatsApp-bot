@@ -5,19 +5,18 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain.memory import ConversationBufferWindowMemory
 from database import Expense, SessionLocal
 from datetime import datetime
-
 from sqlalchemy import text
 import re
-
 from dotenv import load_dotenv
 load_dotenv()
 
-# Initialize LLM
-llm = ChatOpenAI(model="gpt-4o-mini")
+from warnings import filterwarnings
+filterwarnings("ignore")
 
-# Tool to execute SQL queries safely
+llm = ChatOpenAI(model="gpt-4o-mini") 
+
 @tool
-def execute_sql_query(query: str) -> str:
+def execute_sql_query(query: str, params: dict = None) -> str:
     """
     Execute a SQL query on the expenses database and return the result.
     Only SELECT, INSERT, UPDATE, and DELETE queries are allowed.
@@ -25,10 +24,10 @@ def execute_sql_query(query: str) -> str:
     """
     session = SessionLocal()
     try:
-        # if not re.match(r"^(SELECT|INSERT|UPDATE|DELETE)\s", query, re.IGNORECASE):
-        #     return "Invalid query. Only SELECT, INSERT, UPDATE, and DELETE queries are allowed."
+        if not re.match(r"^(SELECT|INSERT|UPDATE|DELETE)\s", query, re.IGNORECASE):
+            return "Invalid query. Only SELECT, INSERT, UPDATE, and DELETE queries are allowed."
 
-        result = session.execute(text(query))
+        result = session.execute(text(query), params) if params else session.execute(text(query))
         session.commit()
 
         if query.strip().upper().startswith("SELECT"):
@@ -72,25 +71,29 @@ Bot has access to the following tools:
 
 To use a tool, please use the following format:
 
-```
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
 Observation: the result of the action
-```
+
 
 When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
 
-```
 Thought: Do I need to use a tool? No
 Final Answer: [your response here]
-```
+
 
 SQL RULES:
 1. Use direct queries without quotes
 2. Always include phone_number filter:
    SELECT: WHERE phone_number = '{{phone_number}}' AND ...
    INSERT: VALUES ('{{phone_number}}', ...)
+
+Remember to:
+1. Validate all amounts
+2. Confirm actions with users
+3. Show relevant emojis
+4. Provide brief, clear responses
 
 Begin!
 
@@ -101,7 +104,6 @@ New input: {input}
 {agent_scratchpad}
 """
 
-# Initialize memory and agent
 memory = ConversationBufferWindowMemory(window_size=5, return_messages=True, memory_key='chat_history')
 agent = create_react_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, memory=memory, handle_parsing_errors=True)
@@ -109,7 +111,6 @@ agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, memory=me
 def process_message(input_text: str, phone_number: str) -> str:
     """Process the user's message and return a response."""
     try:
-
         bot_input = """
 User WhatsApp number: {phone_number}
 User query: {input}
@@ -119,4 +120,4 @@ User query: {input}
         })
         return response.get("output", "No response").strip('```')
     except Exception as e:
-        return f"An error occurred while processing your request"
+        return f"An error occurred while processing your request."     
